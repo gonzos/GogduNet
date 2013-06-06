@@ -1,11 +1,7 @@
 GogduNet
 ========
 
-<<<<<<< HEAD
 **GogduNet** - Flash AS3 Communication Library for **TCP** and **UDP** and **P2P**
-=======
-**GogduNet** - AS3 Communication Library for **TCP** and **UDP** and **P2P** !!
->>>>>>> 愛してる、ミク！
 
 Version 1.0 (2013.6.6.)
 
