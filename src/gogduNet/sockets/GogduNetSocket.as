@@ -14,7 +14,6 @@
 	{
 		private var _socket:Socket;
 		private var _id:String; //식별용 문자열
-		private var _level:int; //0:연결되지 않음, 1:연결됨
 		private var _lastReceivedTime:Number;
 		private var _backupByteArray:ByteArray;
 		private var _event:GogduNetSocketEvent;
@@ -29,7 +28,6 @@
 		{
 			_socket = null;
 			_id = null;
-			_level = 0;
 			_lastReceivedTime = -1;
 			_backupByteArray = new ByteArray();
 			_event = new GogduNetSocketEvent(GogduNetSocketEvent.CONNECTION_UPDATED, false, false, this, null, null);
@@ -70,16 +68,6 @@
 		internal function setID(value:String):void
 		{
 			_id = value;
-		}
-		
-		public function get level():int
-		{
-			return _level;
-		}
-		public function set level(value:int):void
-		{
-			_level = value;
-			dispatchEvent(new GogduNetSocketEvent(GogduNetSocketEvent.LEVEL_CHANGED, false, false, this, _socket, String(value)));
 		}
 		
 		/** 현재 연결되어 있는가를 나타내는 값을 가져온다. */
