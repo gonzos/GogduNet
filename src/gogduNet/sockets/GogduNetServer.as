@@ -1,4 +1,4 @@
-package gogduNet.sockets
+﻿package gogduNet.sockets
 {
 	import flash.events.Event;
 	import flash.events.EventDispatcher;

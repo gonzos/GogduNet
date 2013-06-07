@@ -32,8 +32,6 @@
 		public static const CONNECT_FAILED:String = "connectFailed";
 		public static const CLOSE:String = "close";
 		
-		public static const LEVEL_CHANGED:String = "levelChanged";
-		
 		public static const CONNECTION_UPDATED:String = "connectionUpdated";
 		
 		// info string
