@@ -1,4 +1,4 @@
-﻿package gogduNet.sockets
+package gogduNet.sockets
 {
 	import flash.events.Event;
 	import flash.events.EventDispatcher;
@@ -12,9 +12,6 @@
 	import flash.utils.getTimer;
 	import flash.utils.setTimeout;
 	
-	import gogduNet.utils.ObjectPool;
-	import gogduNet.utils.RandomID;
-	
 	import gogduNet.events.GogduNetDataEvent;
 	import gogduNet.events.GogduNetSocketEvent;
 	import gogduNet.sockets.DataType;
@@ -23,6 +20,8 @@
 	import gogduNet.utils.RecordConsole;
 	import gogduNet.utils.makePacket;
 	import gogduNet.utils.parsePacket;
+	import gogduNet.utils.ObjectPool;
+	import gogduNet.utils.RandomID;
 	
 	/** 허용되지 않은 대상에게서 정보가 전송되면 발생 */
 	[Event(name="unpermittedConnection", type="gogduNet.events.GogduNetSocketEvent")]
@@ -486,7 +485,7 @@
 		}
 		
 		/** level로 소켓을 가져온다. */
-		public function getSocketByLevel(level:int):GogduNetSocket
+		/*public function getSocketByLevel(level:int):GogduNetSocket
 		{
 			var i:uint;
 			var socket:GogduNetSocket;
@@ -510,7 +509,7 @@
 			}
 			
 			return null;
-		}
+		}*/
 		
 		/** 모든 소켓을 가져온다. 반환되는 배열은 복사된 값이므로 수정하더라도 내부에 있는 원본 배열은 바뀌지 않는다. */
 		public function getSockets(resultVector:Vector.<GogduNetSocket>=null):Vector.<GogduNetSocket>
@@ -638,7 +637,7 @@
 		}
 		
 		/** level로 소켓들을 가져온다. */
-		public function getSocketsByLevel(level:int, resultVector:Vector.<GogduNetSocket>=null):Vector.<GogduNetSocket>
+		/*public function getSocketsByLevel(level:int, resultVector:Vector.<GogduNetSocket>=null):Vector.<GogduNetSocket>
 		{
 			if(resultVector == null)
 			{
@@ -667,7 +666,7 @@
 			}
 			
 			return resultVector;
-		}
+		}*/
 		
 		// public function
 		public function dispose():void
@@ -1362,7 +1361,7 @@
 			socket2.initialize();
 			socket2.setNativeSocket(socket);
 			socket2.setID(_randomID.getID());
-			socket2.level = 1;
+			//socket2.level = 1;
 			
 			_idTable[socket2.id] = socket2;
 			socket2.addEventListener(Event.CLOSE, _socketClosed);
@@ -1397,8 +1396,7 @@
 			
 			socket.removeEventListener(Event.CLOSE, _socketClosed);
 			
-			_record.addRecord("Connection to client is disconnected(id:" + socket.id + ", address:" + socket.address + ", port:" + socket.port + 
-				", lv:" + socket.level + ")", true);
+			_record.addRecord("Connection to client is disconnected(id:" + socket.id + ", address:" + socket.address + ", port:" + socket.port + ")", true);
 			_removeSocket(socket);
 			
 			dispatchEvent(new GogduNetSocketEvent(GogduNetSocketEvent.CLOSE, false, false, socket, socket.nativeSocket, GogduNetSocketEvent.INFO_NORMAL_CLOSE));
@@ -1432,8 +1430,7 @@
 			// 일정 시간 이상 전송이 오지 않을 경우 접속이 끊긴 것으로 간주하여 이쪽에서도 접속을 끊는다.
 			if(socket.elapsedTimeAfterLastReceived > _connectionDelayLimit)
 			{
-				_record.addRecord("Disconnects connection to client(NoResponding)(id:" + socket.id + ", address:" + socket.address + ", port:" + socket.port + 
-					", lv:" + socket.level + ")", true);
+				_record.addRecord("Disconnects connection to client(NoResponding)(id:" + socket.id + ", address:" + socket.address + ", port:" + socket.port + ")", true);
 				sendDefinition(socket, "GogduNet.Disconnect.NoResponding");
 				closeSocket(socket);
 				dispatchEvent(new GogduNetSocketEvent(GogduNetSocketEvent.CLOSE, false, false, socket, socket.nativeSocket, GogduNetSocketEvent.INFO_ABNORMAL_CLOSE));
@@ -1514,8 +1511,7 @@
 				// 필요 없는 잉여 패킷(잘못 전달되었거나 악성 패킷)이 있으면 제거한다.
 				if(_reg2.test(packetStr) == true)
 				{
-					_record.addRecord("Sensed surplus packets(elapsedTimeAfterRun:" + elapsedTimeAfterRun + ")(id:" + socket.id + ", address:" + socket.address + ", port:" + socket.port + 
-						", lv:" + socket.level + ")(str:" + packetStr + ")", true);
+					_record.addRecord("Sensed surplus packets(elapsedTimeAfterRun:" + elapsedTimeAfterRun + ")(id:" + socket.id + ", address:" + socket.address + ", port:" + socket.port + ")(str:" + packetStr + ")", true);
 					_record.addByteRecord(packetBytes, true);
 					dispatchEvent(new GogduNetDataEvent(GogduNetDataEvent.INVALID_PACKET, false, false, socket, socketInSocket, null, null, packetBytes));
 					packetStr.replace(_reg2, "");
@@ -1539,8 +1535,7 @@
 					// 패킷에 오류가 있으면
 					if(jsonObj == null)
 					{
-						_record.addRecord("Sensed wrong packets(elapsedTimeAfterRun:" + elapsedTimeAfterRun + ")(id:" + socket.id + ", address:" + socket.address + ", port:" + socket.port + 
-							", lv:" + socket.level + ")(str:" + regArray[i] + ")", true);
+						_record.addRecord("Sensed wrong packets(elapsedTimeAfterRun:" + elapsedTimeAfterRun + ")(id:" + socket.id + ", address:" + socket.address + ", port:" + socket.port + ")(str:" + regArray[i] + ")", true);
 						dispatchEvent(new GogduNetDataEvent(GogduNetDataEvent.INVALID_PACKET, false, false, socket, socketInSocket, null, null, packetBytes));
 						continue;
 					}
@@ -1549,15 +1544,13 @@
 					{
 						if(jsonObj.t == DataType.DEFINITION)
 						{
-							_record.addRecord("Data received(elapsedTimeAfterRun:" + elapsedTimeAfterRun + ")(id:" + socket.id + ", address:" + socket.address + ", port:" + socket.port + 
-								", lv:" + socket.level + ")"/*(type:" + jsonObj.type + ", def:" + 
+							_record.addRecord("Data received(elapsedTimeAfterRun:" + elapsedTimeAfterRun + ")(id:" + socket.id + ", address:" + socket.address + ", port:" + socket.port + ")"/*(type:" + jsonObj.type + ", def:" + 
 								jsonObj.def + ")"*/, true);
 							dispatchEvent(new GogduNetDataEvent(GogduNetDataEvent.RECEIVE_DATA, false, false, socket, socketInSocket, jsonObj.t, jsonObj.df, null));
 						}
 						else
 						{
-							_record.addRecord("Data received(elapsedTimeAfterRun:" + elapsedTimeAfterRun + ")(id:" + socket.id + ", address:" + socket.address + ", port:" + socket.port + 
-								", lv:" + socket.level + ")"/*(type:" + jsonObj.type + ", def:" + 
+							_record.addRecord("Data received(elapsedTimeAfterRun:" + elapsedTimeAfterRun + ")(id:" + socket.id + ", address:" + socket.address + ", port:" + socket.port + ")"/*(type:" + jsonObj.type + ", def:" + 
 								jsonObj.def + ", data:" + jsonObj.data + ")"*/, true);
 							dispatchEvent(new GogduNetDataEvent(GogduNetDataEvent.RECEIVE_DATA, false, false, socket, socketInSocket, jsonObj.t, jsonObj.df, jsonObj.dt));
 						}
