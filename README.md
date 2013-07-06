@@ -13,11 +13,13 @@ Made by **Siyania**
 자세한 설명은 GogduNetServer와 그 외 클래스의 상단에 적혀 있습니다.
 
 (TCP) GogduNetServer : AIR 3.0 Desktop, AIR 3.8
+
 (TCP) GogduNetClient : Flash Player 11, AIR 3.0
 
 (TCP) GogduNetPolicyServer : AIR 3.0 Desktop, AIR 3.8
 
 (TCP) GogduNetBinaryServer : AIR 3.0 Desktop, AIR 3.8
+
 (TCP) GogduNetBinaryClient : Flash Player 11, AIR 3.0
 
 (UCP) GogduNetUDPClient : AIR 3.0 Desktop, AIR 3.8
