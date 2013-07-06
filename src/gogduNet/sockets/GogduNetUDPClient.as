@@ -11,12 +11,11 @@ package gogduNet.sockets
 	import flash.utils.getTimer;
 	import flash.utils.setTimeout;
 	
-	import gogduNet.utils.ObjectPool;
-	
 	import gogduNet.events.GogduNetConnectionEvent;
 	import gogduNet.events.GogduNetUDPDataEvent;
 	import gogduNet.sockets.DataType;
 	import gogduNet.utils.Encryptor;
+	import gogduNet.utils.ObjectPool;
 	import gogduNet.utils.RecordConsole;
 	import gogduNet.utils.makePacket;
 	import gogduNet.utils.parsePacket;
@@ -79,12 +78,12 @@ package gogduNet.sockets
 		/** <p>thisAddress : 바인드할 로컬 address (주로 자신의 address)</p>
 		 * <p>thisPort : 바인드할 로컬 포트 (주로 자신의 포트)</p>
 		 * <p>connectionSecurity : 통신이 허용 또는 비허용된 목록을 가지고 있는 GogduNetConnectionSecurity 타입 객체. 값이 null인 경우 자동으로 생성(new GogduNetConnectionSecurity(false))</p>
-		 * <p>timerInterval : 정보 수신과 연결 검사를 할 때 사용할 타이머의 반복 간격(밀리초 단위)</p>
-		 * <p>connectionDelayLimit : 연결 지연 한계(여기서 설정한 시간 동안 서버로부터 데이터가 오지 않으면 서버와 연결이 끊긴 것으로 간주한다. 초 단위) (설명에선 편의상 연결이란 단어를 썼지만, 정확한 의미는 조금 다르다. UDP 통신은 상대가 수신 가능한지를 따지지 않고 그냥 데이터를 보내기만 한다. 설명에서 연결이 끊긴 것으로 간주한다는 말은, 그 대상으로부터 받아 저장해 두고 있던 정보를 없애겠다는 뜻이다.)</p>
+		 * <p>timerInterval : 정보 수신과 연결 검사를 할 때 사용할 타이머의 반복 간격(ms)</p>
+		 * <p>connectionDelayLimit : 연결 지연 한계(ms)(여기서 설정한 시간 동안 서버로부터 데이터가 오지 않으면 서버와 연결이 끊긴 것으로 간주한다) (설명에선 편의상 연결이란 단어를 썼지만, 정확한 의미는 조금 다르다. UDP 통신은 상대가 수신 가능한지를 따지지 않고 그냥 데이터를 보내기만 한다. 설명에서 연결이 끊긴 것으로 간주한다는 말은, 그 대상으로부터 받아 저장해 두고 있던 정보를 없애겠다는 뜻이다.)</p>
 		 * <p>encoding : 통신을 할 때 사용할 인코딩 형식</p>
 		 */
 		public function GogduNetUDPClient(thisAddress:String="0.0.0.0", thisPort:int=0, connectionSecurity:GogduNetConnectionSecurity=null, 
-										  timerInterval:Number=20, connectionDelayLimit:Number=10, 
+										  timerInterval:Number=100, connectionDelayLimit:Number=10000, 
 										  encoding:String="UTF-8")
 		{
 			_timer = new Timer(timerInterval);
@@ -225,13 +224,13 @@ package gogduNet.sockets
 				return -1;
 			}
 			
-			return getTimer() / 1000.0 - _receivedTime;
+			return getTimer() - _receivedTime;
 		}
 		
 		/** 마지막으로 연결된 시각으로부터 지난 시간을 가져온다. */
 		public function get elapsedTimeAfterLastReceived():Number
 		{
-			return getTimer() / 1000.0 - _lastReceivedTime;
+			return getTimer() - _lastReceivedTime;
 		}
 		
 		/** 마지막으로 연결된 시각을 갱신한다.
@@ -239,8 +238,28 @@ package gogduNet.sockets
 		 */
 		public function updateLastReceivedTime():void
 		{
-			_lastReceivedTime = getTimer() / 1000.0;
+			_lastReceivedTime = getTimer();
 			dispatchEvent(_event);
+		}
+		
+		/** 연결 중인 수를 가지고 온다. (정확히는, 최근에(connectionDelayLimit를 초과하지 않은 시간 안에)
+		 * 통신(정보 수신)한 연결들의 수)
+		 */
+		public function get numConnections():uint
+		{
+			var i:Object;
+			var j:Object;
+			var num:uint = 0;
+			
+			for each(i in _connectionTable)
+			{
+				for each(j in i)
+				{
+					num += 1;
+				}
+			}
+			
+			return num;
 		}
 		
 		// public function
@@ -281,7 +300,7 @@ package gogduNet.sockets
 			_socket.bind(_thisPort, _thisAddress);
 			_socket.receive();
 			
-			_receivedTime = getTimer() / 1000.0;
+			_receivedTime = getTimer();
 			updateLastReceivedTime();
 			_record.addRecord("Started receiving(receivedTime:" + _receivedTime + ")", true);
 			
@@ -787,8 +806,11 @@ package gogduNet.sockets
 			
 			connection = _connectionTable[e.srcAddress][e.srcPort];
 			//수신한 데이터를 connection의 데이터 저장소에 쓴다.
-			e.data.position = 0;
-			connection._backupBytes.writeBytes(e.data, 0, e.data.length);
+			var bytes:ByteArray = e.data;
+			//만약 AS가 아닌 C# 등과 통신할 경우 엔디안이 다르므로 오류가 날 수 있다. 그걸 방지하기 위함.
+			bytes.endian = Endian.LITTLE_ENDIAN;
+			bytes.position = 0;
+			connection._backupBytes.writeBytes(bytes, 0, bytes.length);
 			//마지막 연결 시각을 갱신
 			connection.updateLastReceivedTime();
 		}
@@ -872,9 +894,6 @@ package gogduNet.sockets
 					
 					//packetBytes이 onnection._backupBytes을 참조한다.
 					packetBytes = connection._backupBytes;
-					
-					//만약 AS가 아닌 C# 등과 통신할 경우 엔디안이 다르므로 오류가 날 수 있다. 그걸 방지하기 위함.
-					packetBytes.endian = Endian.LITTLE_ENDIAN;
 					
 					// 정보(byte)를 String으로 읽는다.
 					try

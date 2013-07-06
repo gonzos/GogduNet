@@ -1,7 +1,7 @@
 package
 {
 	/**
-	 * @author : Siyania (siyania@naver.com)
+	 * @author : Siyania (siyania@naver.com) (http://siyania.blog.me/)
 	 * @create : Jun 6, 2013
 	 */
 	import flash.display.Sprite;
@@ -26,7 +26,7 @@ package
 			//정보 수신 시작
 			client2.receive();
 			
-			client.sendString("GogduNet.Message", "I Love Miku!!", "127.0.0.1", 4444);
+			client.sendString("Message", "I Love Miku!!", "127.0.0.1", 4444);
 			
 			function getData(e:GogduNetUDPDataEvent):void
 			{
@@ -36,8 +36,13 @@ package
 			function getData2(e:GogduNetUDPDataEvent):void
 			{
 				trace("client2 <-", e.dataType, e.dataDefinition, e.data);
-				client2.sendString("GogduNet.Message", "は、はい！", "127.0.0.1", 3333);
+				client2.sendString("Message", "は、はい！", "127.0.0.1", 3333);
 			}
 		}
+		/*
+		Console)
+		client2 <- str Message I Love Miku!!
+		client <- str Message は、はい！
+		*/
 	}
 }

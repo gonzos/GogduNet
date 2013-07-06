@@ -88,10 +88,10 @@
 			_id = value;
 		}
 		
-		/** 마지막으로 연결된 시각으로부터 지난 시간을 가져온다.(초 단위) */
+		/** 마지막으로 연결된 시각으로부터 지난 시간을 가져온다.(ms) */
 		public function get elapsedTimeAfterLastReceived():Number
 		{
-			return getTimer() / 1000.0 - _lastReceivedTime;
+			return getTimer() - _lastReceivedTime;
 		}
 		
 		/** 마지막으로 연결된 시각을 갱신한다.
@@ -100,7 +100,7 @@
 		 */
 		public function updateLastReceivedTime():void
 		{
-			_lastReceivedTime = getTimer() / 1000.0;
+			_lastReceivedTime = getTimer();
 			dispatchEvent(_event);
 		}
 		
@@ -122,9 +122,9 @@
 		 */
 		public function searchForPeerStream(findStream:NetStream, tryNum:int=100, tryInterval:Number=100):void
 		{
-			if(tryNum < 0 || !_netStream)
+			if(tryNum < 0)
 			{
-				dispatchEvent(new GogduNetStatusEvent(GogduNetStatusEvent.STATUS, false, false, null, DataType.STATUS, "GogduNet.Peer.FindPeerStreamFailed", null));
+				dispatchEvent(new GogduNetStatusEvent(GogduNetStatusEvent.STATUS, false, false, _netStream.farID, DataType.STATUS, "GogduNet.Peer.FindPeerStreamFailed", null));
 				return;
 			}
 			

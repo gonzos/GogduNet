@@ -10,6 +10,9 @@
 		public static const RECEIVE_DATA:String = "receiveData";
 		public static const INVALID_PACKET:String = "invalidPacket";
 		
+		/** only GogduNetBinaryServer */
+		public static const PROGRESS_DATA:String = "progressData";
+		
 		private var _socket:GogduNetSocket;
 		private var _nativeSocket:Socket;
 		private var _dataType:String;

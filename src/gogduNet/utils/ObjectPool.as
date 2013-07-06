@@ -15,13 +15,13 @@
 		}
 		
 		/** 사용 중인 객체의 수를 가져온다. */
-		public function get activeCount():int
+		public function get activeCount():uint
 		{
 			return _activeObjects.length;
 		}
 		
 		/** 사용할 수 있는 객체의 수를 가져온다. */
-		public function get inactiveCount():int
+		public function get inactiveCount():uint
 		{
 			return _inactiveObjects.length;
 		}
@@ -50,11 +50,10 @@
 		public function returnInstance(object:Object):void
 		{
 			var i:int;
-			var instance:Object;
 			
 			for(i = 0; i < _activeObjects.length; i += 1)
 			{
-				if(_activeObjects[i] == instance)
+				if(_activeObjects[i] == object)
 				{
 					_activeObjects.splice(i, 1);
 					_inactiveObjects.push(object);

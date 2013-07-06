@@ -121,7 +121,7 @@
 			return _record;
 		}
 		
-		/** 서버가 시작된 후 시간이 얼마나 지났는지를 나타내는 Number 값을 가져온다.(초 단위) */
+		/** 서버가 시작된 후 시간이 얼마나 지났는지를 나타내는 Number 값을 가져온다.(ms) */
 		public function get elapsedTimeAfterRun():Number
 		{
 			if(_run == false)
@@ -129,7 +129,7 @@
 				return -1;
 			}
 			
-			return _runnedTime - getTimer() / 1000.0;
+			return _runnedTime - getTimer();
 		}
 		
 		// public function
@@ -155,7 +155,7 @@
 			}
 			
 			_run = true;
-			_runnedTime = getTimer() / 1000.0;
+			_runnedTime = getTimer();
 			_serverSocket.bind(_serverPort, _serverAddress);
 			_serverSocket.listen();
 			_serverSocket.addEventListener(ServerSocketConnectEvent.CONNECT, _socketConnect);

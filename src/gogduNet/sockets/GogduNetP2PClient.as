@@ -62,7 +62,6 @@
 		
 		private var _url:String;
 		private var _netGroupName:String;
-		private var _maxConnections:uint;
 		private var _groupSpecifier:GroupSpecifier;
 		private var _netConnection:NetConnection;
 		private var _netGroup:NetGroup;
@@ -96,11 +95,11 @@
 		 * <p>name : NetGroup 이름</p>
 		 * <p>maxConnections : flash.net.NetConnection.maxPeerConnections 속성을 설정한다.
 		 * <p>connectionSecurity : 통신이 허용 또는 비허용된 목록을 가지고 있는 GogduNetConnectionSecurity 타입 객체. 값이 null인 경우 자동으로 생성(new GogduNetConnectionSecurity(false))</p>
-		 * <p>timerInterval : 타이머 간격(GogduNetP2PClient의 timer는 정보 수신을 겸하지 않고 오로지 연결 검사용으로만 쓰이기 때문에 반복 속도(timerInterval)가 조금
-		 * 느려도 괜찮습니다. 밀리초 단위)</p>
-		 * <p>connectionDelayLimit : 연결 지연 한계(여기서 설정한 시간 동안 특정 피어로부터 데이터가 오지 않으면 그 피어와 연결이 끊긴 것으로 간주한다. 초 단위)</p>
+		 * <p>timerInterval : 타이머 간격(ms)(GogduNetP2PClient의 timer는 정보 수신을 겸하지 않고 오로지 연결 검사용으로만 쓰이기 때문에 반복 속도(timerInterval)가 조금
+		 * 느려도 괜찮습니다.)</p>
+		 * <p>connectionDelayLimit : 연결 지연 한계(ms)(여기서 설정한 시간 동안 특정 피어로부터 데이터가 오지 않으면 그 피어와 연결이 끊긴 것으로 간주한다.)</p>
 		 */
-		public function GogduNetP2PClient(url:String, netGroupName:String="GogduNet", maxConnections:uint=8, connectionSecurity:GogduNetConnectionSecurity=null, timerInterval:Number=1000, connectionDelayLimit:Number=10)
+		public function GogduNetP2PClient(url:String, netGroupName:String="GogduNet", maxConnections:uint=0, connectionSecurity:GogduNetConnectionSecurity=null, timerInterval:Number=1000, connectionDelayLimit:Number=10000)
 		{
 			_connectionDelayLimit = connectionDelayLimit;
 			_timer = new Timer(timerInterval);
@@ -193,12 +192,12 @@
 			_timer.delay = value;
 		}
 		
-		/** 연결 지연 한계를 가져온다.(초 단위) */
+		/** 연결 지연 한계를 가져온다.(ms) */
 		public function get connectionDelayLimit():Number
 		{
 			return _connectionDelayLimit;
 		}
-		/** 연결 지연 한계를 설정한다.(초 단위) */
+		/** 연결 지연 한계를 설정한다.(ms) */
 		public function set connectionDelayLimit(value:Number):void
 		{
 			_connectionDelayLimit = value;
@@ -242,7 +241,7 @@
 			return _peerPool;
 		}
 		
-		/** 연결된 후 시간이 얼마나 지났는지를 나타내는 Number 값을 가져온다.(초 단위) */
+		/** 연결된 후 시간이 얼마나 지났는지를 나타내는 Number 값을 가져온다.(ms) */
 		public function get elapsedTimeAfterConnected():Number
 		{
 			if(_isConnected == false)
@@ -250,13 +249,18 @@
 				return -1;
 			}
 			
-			return getTimer() / 1000.0 - _connectedTime;
+			return getTimer() - _connectedTime;
 		}
 		
-		/** 마지막으로 연결된 시각으로부터 지난 시간을 가져온다.(초 단위) */
+		/** 마지막으로 연결된 시각으로부터 지난 시간을 가져온다.(ms) */
 		public function get elapsedTimeAfterLastReceived():Number
 		{
-			return getTimer() / 1000.0 - _lastReceivedTime;
+			return getTimer() - _lastReceivedTime;
+		}
+		
+		public function get numPeers():uint
+		{
+			return _peerArray.length;
 		}
 		
 		/** 마지막으로 연결된 시각을 갱신한다.
@@ -264,7 +268,7 @@
 		 */
 		private function updateLastReceivedTime():void
 		{
-			_lastReceivedTime = getTimer() / 1000.0;
+			_lastReceivedTime = getTimer();
 			dispatchEvent(_event);
 		}
 		
@@ -299,6 +303,7 @@
 				peer = _peerArray[i];
 				
 				peer.removeEventListener(NetStatusEvent.NET_STATUS, _onNetStatus);
+				peer.removeEventListener(GogduNetStatusEvent.STATUS, _onSearchForPeerStream);
 				_idTable[peer.id] = null;
 				peer.netStream.close();
 				peer.dispose();
@@ -315,7 +320,9 @@
 			_netGroup.removeEventListener(NetStatusEvent.NET_STATUS, _onNetStatus);
 			_netConnection.close();
 			_netConnection.removeEventListener(NetStatusEvent.NET_STATUS, _onNetStatus);
+			var backup:uint = _netConnection.maxPeerConnections;
 			_netConnection = new NetConnection(); //NetConnection is non reusable after NetConnection.close()
+			_netConnection.maxPeerConnections = backup;
 			_timer.stop();
 			_timer.removeEventListener(TimerEvent.TIMER, _timerFunc);
 			
@@ -860,7 +867,7 @@
 				// 연결에 성공한 경우
 				else if(code == "NetGroup.Connect.Success")
 				{
-					_connectedTime = getTimer() / 1000.0;
+					_connectedTime = getTimer();
 					updateLastReceivedTime();
 					
 					_netGroup.addEventListener(NetStatusEvent.NET_STATUS, _onNetStatus);
@@ -907,6 +914,7 @@
 					peer = _peerArray[_addPeer(info.peerID)];
 					//해당 피어와의 연결을 갱신
 					peer.updateLastReceivedTime();
+					peer.addEventListener(GogduNetStatusEvent.STATUS, _onSearchForPeerStream);
 					
 					_record.addRecord("Neighbor connected(elapsedTimeAfterConnected:" + elapsedTimeAfterConnected + ")(id:" + peer.id + ", peerID:" + info.peerID + ")", true);
 					dispatchEvent(new GogduNetStatusEvent(GogduNetStatusEvent.STATUS, false, false, null, DataType.STATUS, code, e));
@@ -926,7 +934,7 @@
 						_record.addRecord("Neighbor disconnected(elapsedTimeAfterConnected:" + elapsedTimeAfterConnected + ")(id:[null], peerID:" + info.peerID + ")", true);
 					}
 					
-					_removePeer(info.peerID);
+					closePeer(info.peerID);
 					dispatchEvent(new GogduNetStatusEvent(GogduNetStatusEvent.STATUS, false, false, null, DataType.STATUS, code, e));
 					dispatchEvent(new GogduNetStatusEvent(GogduNetStatusEvent.STATUS, false, false, info.peerID, DataType.STATUS, "GogduNet.Neighbor.Disconnect", null));
 				}
@@ -966,7 +974,30 @@
 				return;
 			}
 			
-			_peerArray[_addPeer(ns.farID)].updateLastReceivedTime();
+			var peer:GogduNetPeer = _peerArray[_addPeer(ns.farID)];
+			peer.updateLastReceivedTime();
+			peer.addEventListener(GogduNetStatusEvent.STATUS, _onSearchForPeerStream);
+		}
+		
+		private function _onSearchForPeerStream(e:GogduNetStatusEvent):void
+		{
+			if(e.dataType == DataType.STATUS)
+			{
+				//피어가 자신의 피어 스트림을 찾은 경우
+				if(e.dataDefinition == "GogduNet.Peer.FoundPeerStream")
+				{
+					//연결이 안정되었다고 판단하고 해당 피어와의 연결이 안정되었음을 이벤트로 알린다.
+					dispatchEvent( new GogduNetStatusEvent(GogduNetStatusEvent.STATUS, false, false, e.peerID, DataType.STATUS, "GogduNet.Peer.Connection.Stabilized") );
+					getPeerByPeerID(e.peerID).removeEventListener(GogduNetStatusEvent.STATUS, _onSearchForPeerStream);
+				}
+				//피어가 자신의 피어 스트림을 찾는 데 실패한 경우
+				if(e.dataDefinition == "GogduNet.Peer.FindPeerStreamFailed")
+				{
+					//연결 안정화 확인 작업이 실패했음을 이벤트로 알린다.
+					dispatchEvent( new GogduNetStatusEvent(GogduNetStatusEvent.STATUS, false, false, e.peerID, DataType.STATUS, "GogduNet.Peer.Connection.StabilizeFailed") );
+					getPeerByPeerID(e.peerID).removeEventListener(GogduNetStatusEvent.STATUS, _onSearchForPeerStream);
+				}
+			}
 		}
 		
 		/** peer를 배열에 저장해 둔다. */
@@ -1005,8 +1036,8 @@
 			return _peerArray.push(peer)-1;
 		}
 		
-		/** 배열에 있는 peer를 제거한다. */
-		private function _removePeer(targetPeerID:String):void
+		/** peer를 제거하고 연결을 끊는다. */
+		public function closePeer(targetPeerID:String):void
 		{
 			var peer:GogduNetPeer = getPeerByPeerID(targetPeerID);
 			
@@ -1046,7 +1077,7 @@
 				{
 					_record.addRecord("Close connection to peer(NoResponding)(id:" + peer.id + ", peerID:" + peer.peerID + ")", true);
 					dispatchEvent(new GogduNetStatusEvent(GogduNetStatusEvent.STATUS, false, false, peer.peerID, DataType.STATUS, "GogduNet.Neighbor.Disconnect.NoResponding", null));
-					_removePeer(peer.peerID);
+					closePeer(peer.peerID);
 					continue;
 				}
 			}

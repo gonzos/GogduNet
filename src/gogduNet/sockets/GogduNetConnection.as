@@ -53,10 +53,10 @@ package gogduNet.sockets
 			_port = value;
 		}
 		
-		/** 마지막으로 연결된 시각으로부터 지난 시간을 가져온다.(초 단위) */
+		/** 마지막으로 연결된 시각으로부터 지난 시간을 가져온다.(ms) */
 		public function get elapsedTimeAfterLastReceived():Number
 		{
-			return getTimer() / 1000.0 - _lastReceivedTime;
+			return getTimer() - _lastReceivedTime;
 		}
 		
 		/** 통신을 할 때 아직 처리하지 못 한 패킷을 보관하는 바이트 배열이다.
@@ -73,7 +73,7 @@ package gogduNet.sockets
 		 */
 		public function updateLastReceivedTime():void
 		{
-			_lastReceivedTime = getTimer() / 1000.0;
+			_lastReceivedTime = getTimer();
 			dispatchEvent(_event);
 		}
 		

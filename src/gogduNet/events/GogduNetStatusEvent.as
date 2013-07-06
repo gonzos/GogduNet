@@ -19,6 +19,8 @@
 	 * 				<li>"GogduNet.Neighbor.Disconnect" : NetGroup에서 누군가가 나가면 발생한다. (peerID:나간 피어의 peerID)</li>
 	 * 				<li>"GogduNet.Neighbor.Connect" : 누군가가 나와 연결된 경우 발생한다.(NetGroup에 누군가가 접속하거나, 누군가가 접속되어 있는 NetGroup에 내가 접속한 경우) (peerID:연결된 피어의 peerID)</li>
 	 * 				<li>"GogduNet.Neighbor.Disconnect.NoResponding" : (GogduNetP2PClient) 특정 피어에게서 connectionDelayLimit 속성에서 정의된 시간 동안 아무 데이터도 받지 못한 경우 자동으로 연결을 끊는데, 이때 발생한다. (peerID:끊은 피어의 peerID)</li>
+	 * 				<li>"GogduNet.Peer.Connection.Stabilized" : 특정 피어와의 연결이 안정되면 발생한다. (이 이벤트가 발생했더라도 나중에 다시 연결이 불안정해질 수가 있다.) (peerID:안정된 피어의 peerID)</li>
+	 * 				<li>"GogduNet.Peer.Connection.StabilizeFailed" : 특정 피어의 안정화 확인 작업이 실패하면 발생한다. (연결 후 자동으로 시도되는 안정화 확인 작업 중에서 안정화가 되지 않았다는 걸 의미하므로, 이 이벤트가 발생했더라도 나중에 연결이 안정될 수 있다) (peerID:안정된 피어의 peerID)</li>
 	 * 				<li>flash.events.NetStatusEvent 이벤트 중 info 속성의 level 속성이 "status"인 이벤트가 발생한 경우에 (dataDefinition:NetStatusEvent.info.code, data:NetStatusEvent 객체)로 이벤트가 발생한다.</li>
 	 * 			</ul>
 	 * 		</li>

@@ -53,8 +53,9 @@
 		
 		private function _getRandomNum():String
 		{
-			var num:uint = uint(Math.random() * uint.MAX_VALUE);
+			//var num:uint = uint(Math.random() * uint.MAX_VALUE);
 			/*var dateTime:Number = new Date().time;*/
+			var num:uint = uint(Math.random() * 100);
 			var currTime:int = getTimer();
 			return String(num) /*+ "." + String(dateTime)*/ + "." + String(currTime);
 		}

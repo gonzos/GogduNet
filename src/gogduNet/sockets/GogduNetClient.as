@@ -74,12 +74,12 @@
 		
 		/** <p>serverAddress : 연결할 서버의 address</p>
 		 * <p>serverPort : 연결할 서버의 포트</p>
-		 * <p>timerInterval : 정보 수신과 연결 검사를 할 때 사용할 타이머의 반복 간격(밀리초 단위)</p>
-		 * <p>connectionDelayLimit : 연결 지연 한계(여기서 설정한 시간 동안 서버로부터 데이터가 오지 않으면 서버와 연결이 끊긴 것으로 간주한다. 초 단위)</p>
+		 * <p>timerInterval : 정보 수신과 연결 검사를 할 때 사용할 타이머의 반복 간격(ms)</p>
+		 * <p>connectionDelayLimit : 연결 지연 한계(ms)(여기서 설정한 시간 동안 서버로부터 데이터가 오지 않으면 서버와 연결이 끊긴 것으로 간주한다.)</p>
 		 * <p>encoding : 통신을 할 때 사용할 인코딩 형식</p>
 		 */
-		public function GogduNetClient(serverAddress:String, serverPort:int, timerInterval:Number=20,
-										connectionDelayLimit:Number=10, encoding:String="UTF-8")
+		public function GogduNetClient(serverAddress:String, serverPort:int, timerInterval:Number=100,
+										connectionDelayLimit:Number=10000, encoding:String="UTF-8")
 		{
 			_timer = new Timer(timerInterval);
 			_connectionDelayLimit = connectionDelayLimit;
@@ -189,13 +189,13 @@
 				return -1;
 			}
 			
-			return getTimer() / 1000.0 - _connectedTime;
+			return getTimer() - _connectedTime;
 		}
 		
 		/** 마지막으로 연결된 시각으로부터 지난 시간을 가져온다. */
 		public function get elapsedTimeAfterLastReceived():Number
 		{
-			return getTimer() / 1000.0 - _lastReceivedTime;
+			return getTimer() - _lastReceivedTime;
 		}
 		
 		/** 마지막으로 연결된 시각을 갱신한다.
@@ -203,7 +203,7 @@
 		 */
 		public function updateLastReceivedTime():void
 		{
-			_lastReceivedTime = getTimer() / 1000.0;
+			_lastReceivedTime = getTimer();
 			dispatchEvent(_event);
 		}
 		
@@ -252,7 +252,7 @@
 			_socket.removeEventListener(IOErrorEvent.IO_ERROR, _socketConnectFail);
 			_socket.removeEventListener(SecurityErrorEvent.SECURITY_ERROR, _socketConnectFail2);
 			
-			_connectedTime = getTimer() / 1000.0;
+			_connectedTime = getTimer();
 			updateLastReceivedTime();
 			_record.addRecord("Connected to server(connectedTime:" + _connectedTime + ")", true);
 			
@@ -504,7 +504,7 @@
 		private function _listen():void
 		{
 			var packetBytes:ByteArray; // 패킷을 읽을 때 쓰는 바이트 배열.
-			var bytes:ByteArray; // 패킷을 읽을 때 보조용으로 한 번만 쓰는 일회용 문자열.
+			var bytes:ByteArray; // 패킷을 읽을 때 보조용으로 한 번만 쓰는 일회용 바이트 배열.
 			var regArray:Array; // 정규 표현식으로 찾은 문자열들을 저장해 두는 배열
 			var jsonObj:Object // JSON Object로 전환된 패킷을 담는 객체
 			var packetStr:String; // byte을 String으로 변환하여 읽을 때 쓰는 문자열.
@@ -523,24 +523,23 @@
 			updateLastReceivedTime();
 			
 			// packetBytes는 socket.packetBytes + socketInSocket의 값을 가지게 된다.
-			try
-			{
+			/*try
+			{*/
 				packetBytes = new ByteArray();
 				bytes = _backupBytes;
 				bytes.position = 0;
 				packetBytes.position = 0;
 				packetBytes.writeBytes(bytes, 0, bytes.length);
+				//만약 AS가 아닌 C# 등과 통신할 경우 엔디안이 다르므로 오류가 날 수 있다. 그걸 방지하기 위함.
+				_socket.endian = Endian.LITTLE_ENDIAN;
 				_socket.readBytes(packetBytes, packetBytes.length, _socket.bytesAvailable);
 				bytes.length = 0; //bytes == _backupBytes
-				
-				//만약 AS가 아닌 C# 등과 통신할 경우 엔디안이 다르므로 오류가 날 수 있다. 그걸 방지하기 위함.
-				packetBytes.endian = Endian.LITTLE_ENDIAN;
-			}
+			/*}
 			catch(e:Error)
 			{
 				_record.addErrorRecord(e, "It occurred from read to socket's packet", true);
 				return;
-			}
+			}*/
 			
 			// 정보(byte)를 String으로 읽는다.
 			try

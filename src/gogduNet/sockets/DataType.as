@@ -15,6 +15,9 @@
 		public static const BOOLEAN:String = "tf";
 		public static const JSON:String = "json";
 		
+		/** GogduNetBinaryServer과 GogduNetBinaryClient에서만 쓰이는 형식 */
+		public static const BYTES:String = "bts";
+		
 		public function DataType()
 		{
 			throw new Error("DataType 클래스는 인스턴스 객체를 생성할 수 없습니다.");

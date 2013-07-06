@@ -1,7 +1,7 @@
 package
 {
 	/**
-	 * @author : Siyania (siyania@naver.com)
+	 * @author : Siyania (siyania@naver.com) (http://siyania.blog.me/)
 	 * @create : Jun 6, 2013
 	 */
 	import flash.display.Sprite;
@@ -32,13 +32,13 @@ package
 			
 			function onConnect(e:Event):void
 			{
-				client.sendString("GogduNet.Message", "I Love Miku!!");
+				client.sendString("Message", "I Love Miku!!");
 			}
 			
 			function serverGetData(e:GogduNetDataEvent):void
 			{
 				trace("server <-", e.dataType, e.dataDefinition, e.data);
-				server.sendString(e.socket, "GogduNet.Message", "は、はい！");
+				server.sendString(e.socket, "Message", "は、はい！");
 			}
 			
 			function clientGetData(e:GogduNetDataEvent):void
@@ -46,5 +46,11 @@ package
 				trace("client <-", e.dataType, e.dataDefinition, e.data);
 			}
 		}
+		/*
+		Console)
+		server <- str Message I Love Miku!!
+		client <- def GogduNet.Connect.Success null
+		client <- str Message は、はい！
+		*/
 	}
 }

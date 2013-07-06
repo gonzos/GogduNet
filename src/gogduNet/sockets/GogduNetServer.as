@@ -12,6 +12,9 @@
 	import flash.utils.getTimer;
 	import flash.utils.setTimeout;
 	
+	import gogduNet.utils.ObjectPool;
+	import gogduNet.utils.RandomID;
+	
 	import gogduNet.events.GogduNetDataEvent;
 	import gogduNet.events.GogduNetSocketEvent;
 	import gogduNet.sockets.DataType;
@@ -20,8 +23,6 @@
 	import gogduNet.utils.RecordConsole;
 	import gogduNet.utils.makePacket;
 	import gogduNet.utils.parsePacket;
-	import gogduNet.utils.ObjectPool;
-	import gogduNet.utils.RandomID;
 	
 	/** 허용되지 않은 대상에게서 정보가 전송되면 발생 */
 	[Event(name="unpermittedConnection", type="gogduNet.events.GogduNetSocketEvent")]
@@ -40,12 +41,12 @@
 	/** 정상적이지 않은 데이터를 수신했을 때 발생 */
 	[Event(name="invalidPacket", type="gogduNet.events.GogduNetDataEvent")]
 	
-	/** <p>GogduNet는 간단하게 TCP 통신(GogduNetServer, GogduNetClient, GogduNetPolicyServer)이나 P2P UDP 통신(GogduNetP2PClient), UDP 통신(GogduNetUDPClient)을 구현해 주는 라이브러리입니다. 기본적으로 JSON 문자열로 통신을 합니다.</p>
+	/** <p>GogduNet는 간단하게 TCP 통신(GogduNetServer, GogduNetClient, GogduNetPolicyServer)이나 P2P UDP 통신(GogduNetP2PClient), UDP 통신(GogduNetUDPClient)을 구현해 주는 라이브러리입니다. GogduNetBinaryServer와 GogduNetBinaryClient(2진 데이터 전송용 TCP 통신)를 제외한 다른 통신은 모두 기본적으로 JSON 문자열로 통신을 합니다.</p>
 	 * 
 	 * <strong>GogduNet의 통신 규칙</strong>
 	 * 
 	 * <p>GogduNet이 통신을 할 때 지켜야 하는 규칙을 설명합니다. GogduNet 라이브러리를 그대로 사용할 거라면 몰라도 되지만,
-	 * 만약 입맛대로 조금 수정하여 사용할 거라면 아는 게 좋습니다.</p>
+	 * 만약 입맛대로 조금 수정하여 사용할 거라면 아는 게 좋습니다. (GogduNetBinaryServer와 GogduNetBinaryClient는 별도의 패킷을 사용합니다. 그 두 통신의 패킷 구조는 GogduNetBinaryServer 클래스의 설명에 나와 있습니다)</p>
 	 * 
 	 * <p>한 패킷은 <code>{"t":"내용", "df":"내용", "dt":"내용"}</code> 이런 형태로 구성됩니다. 여기서 t(type) 부분은 패킷 데이터의 형태(string, 
 	 * array, int, uint 등)를 나타내며, df(definition) 부분은 데이터가 무얼 위해 보내졌는지(프로토콜)를 나타냅니다.(예로 "GogduNet.Message")
@@ -70,7 +71,7 @@
 	 * 	<ul>
 	 * 		<li>패킷에서 def 영역은 String 값으로서, 그냥 "000"이나 "001" 같은 값을 사용해도 아무 상관이 없습니다.</li>
 	 * 		<li>gogduNet.utils.Encryptor 클래스를 수정하여 암호화하는 방법을 바꿀 수 있습니다.(단, Base64 encode/decode 부분은 건들지 마세요.)</li>
-	 * 		<li>GogduNetServer, GogduNetP2PClient, GogduNetUDPClient는 내부적으로 Object Pool를 사용합니다.</li>
+	 * 		<li>GogduNetServer, GogduNetP2PClient, GogduNetUDPClient, GogduNetBinaryServer는 내부적으로 Object Pool를 사용합니다.</li>
 	 * 	</ul>
 	 * 
 	 * <strong></br>기본적인 사용법(GogduNetServer, GogduNetClient)</strong>
@@ -115,8 +116,8 @@
 	 * <p>이제 서버-클라이언트 순으로 실행하여 테스트해 보면, 클라이언트측에서 메시지를 받은 것을 확인할 수 있다.</p>
 	 * 
 	 * @langversion 3.0
-	 * @playerversion GogduNetServer·GogduNetPolicyServer·GogduNetUDPClient : AIR 3.0 Desktop·AIR 3.8
-	 * @playerversion GogduNetClient·GogduNetP2PClient : Flash Player 11·AIR 3.0
+	 * @playerversion GogduNetServer·GogduNetPolicyServer·GogduNetUDPClient·GogduNetBinaryServer : AIR 3.0 Desktop·AIR 3.8
+	 * @playerversion GogduNetClient·GogduNetP2PClient·GogduNetBinaryClient : Flash Player 11·AIR 3.0
 	 */
 	public class GogduNetServer extends EventDispatcher
 	{
@@ -151,13 +152,7 @@
 		/** 마지막으로 통신한 시각(정확히는 마지막으로 정보를 전송 받은 시각) */
 		private var _lastReceivedTime:Number;
 		/** 최대 인원 */
-		private var _maxPersons:uint;
-		/** 최대 동시 접속자 수 */
-		private var _maxConcurrentConnectionPersons:uint;
-		/** 접속자 누적 수 */
-		private var _cumulativePersons:uint;
-		/** 접속자 누적 수가 uint의 최대값을 넘어갔을 경우 이 변수를 1 더하고 접속자 누적 수를 초기화. */
-		private var _garbageCumulativePeople:uint;
+		private var _maxSockets:uint;
 		/** 디버그용 기록 */
 		private var _record:RecordConsole;
 		
@@ -168,21 +163,22 @@
 		
 		private var _event:GogduNetSocketEvent;
 		
+		/** 중복되지 않는 ID를 발급해 주는 RandomID 객체 */
 		private var _randomID:RandomID;
-		
+		/** 소켓용 풀 */
 		private var _socketPool:ObjectPool;
 		/** 통신이 허용 또는 비허용된 목록을 가지고 있는 GogduNetConnectionSecurity 타입 객체 */
 		private var _connectionSecurity:GogduNetConnectionSecurity;
 		
 		/** <p>serverAddress : 서버로 사용할 address</p>
 		 * <p>serverPort : 서버로 사용할 포트</p>
-		 * <p>maxPersons : 최대 인원 수 제한</p>
-		 * <p>timerInterval : 정보 수신과 연결 검사를 할 때 사용할 타이머의 반복 간격(밀리초 단위)</p>
-		 * <p>connectionDelayLimit : 연결 지연 한계(여기서 설정한 시간 동안 소켓으로부터 데이터가 오지 않으면 그 소켓과는 연결이 끊긴 것으로 간주한다. 초 단위)</p>
+		 * <p>maxSockets : 최대 인원 수 제한</p>
+		 * <p>timerInterval : 정보 수신과 연결 검사를 할 때 사용할 타이머의 반복 간격(ms)</p>
+		 * <p>connectionDelayLimit : 연결 지연 한계(ms)(여기서 설정한 시간 동안 소켓으로부터 데이터가 오지 않으면 그 소켓과는 연결이 끊긴 것으로 간주한다.)</p>
 		 * <p>encoding : 통신을 할 때 사용할 인코딩 형식</p>
 		 */
-		public function GogduNetServer(serverAddress:String="0.0.0.0", serverPort:int=0, maxPersons:uint=10, connectionSecurity:GogduNetConnectionSecurity=null, timerInterval:Number=20,
-										connectionDelayLimit:Number=10, encoding:String="UTF-8")
+		public function GogduNetServer(serverAddress:String="0.0.0.0", serverPort:int=0, maxSockets:uint=10, connectionSecurity:GogduNetConnectionSecurity=null, timerInterval:Number=100,
+										connectionDelayLimit:Number=10000, encoding:String="UTF-8")
 		{
 			_timer = new Timer(timerInterval);
 			_connectionDelayLimit = connectionDelayLimit;
@@ -193,10 +189,7 @@
 			_run = false;
 			_runnedTime = -1;
 			_lastReceivedTime = -1;
-			_maxPersons = maxPersons;
-			_maxConcurrentConnectionPersons = 0;
-			_cumulativePersons = 0;
-			_garbageCumulativePeople = 0;
+			_maxSockets = maxSockets;
 			_record = new RecordConsole();
 			_socketArray = new Vector.<GogduNetSocket>();
 			_idTable = new Object();
@@ -222,12 +215,12 @@
 			_timer.delay = value;
 		}
 		
-		/** 연결 지연 한계를 가져온다.(초 단위) */
+		/** 연결 지연 한계를 가져온다.(ms) */
 		public function get connectionDelayLimit():Number
 		{
 			return _connectionDelayLimit;
 		}
-		/** 연결 지연 한계를 설정한다.(초 단위) */
+		/** 연결 지연 한계를 설정한다.(ms) */
 		public function set connectionDelayLimit(value:Number):void
 		{
 			_connectionDelayLimit = value;
@@ -292,13 +285,13 @@
 		}
 		
 		/** 서버의 최대 인원 제한 수를 가져오거나 설정한다. (이 값은 새로 들어오는 연결에만 영향을 주며, 기존 연결은 끊어지지 않는다.)*/
-		public function get maxPersons():uint
+		public function get maxSockets():uint
 		{
-			return _maxPersons;
+			return _maxSockets;
 		}
-		public function set maxPersons(value:uint):void
+		public function set maxSockets(value:uint):void
 		{
-			_maxPersons =value;
+			_maxSockets =value;
 		}
 		
 		/** 통신이 허용 또는 비허용된 목록을 가지고 있는 GogduNetConnectionSecurity 타입 객체를 가져오거나 설정한다. */
@@ -312,32 +305,9 @@
 		}
 		
 		/** 서버의 현재 인원을 가져온다. */
-		public function get currentPersons():uint
+		public function get currentSockets():uint
 		{
 			return _socketArray.length;
-		}
-		
-		/** 서버의 최대 동접 수를 가져온다. */
-		public function get maxConcurrentConnectionPersons():uint
-		{
-			return _maxConcurrentConnectionPersons;
-		}
-		
-		/** 서버의 인원 누적 수를 가져온다. (서버를 시작한 후 연결에 성공했던 모든 수를 나타내며,
-		 * close() 함수로 서버를 닫아도 그대로 남아있으나, run() 함수로 서버를 다시 시작하면 값이 초기화된다.)
-		 */
-		public function get cumulativePersons():uint
-		{
-			return _cumulativePersons;
-		}
-		
-		/** 서버의 쓰레기 인원 누적 수(cumulativePersons의 값이 uint의 최대값을 넘어가려고 하는 경우, garbageCumulativePeople의 값이 1 오르고
-		 * cumulativePersons의 값이 0으로 초기화된다.)를 가져온다.
-		 * (close() 함수로 서버를 닫아도 그대로 남아있으나, run() 함수로 서버를 다시 시작하면 값이 초기화된다.)
-		 */
-		public function get garbageCumulativePeople():uint
-		{
-			return _garbageCumulativePeople;
 		}
 		
 		/** 디버그용 기록을 가져온다. 사용자가 명시적으로 RecordConsole.clear() 함수를 실행하는 경우를 제외하면,
@@ -360,7 +330,7 @@
 			return _socketPool;
 		}
 		
-		/** 서버가 시작된 후 시간이 얼마나 지났는지를 나타내는 Number 값을 가져온다. (초 단위)
+		/** 서버가 시작된 후 시간이 얼마나 지났는지를 나타내는 Number 값을 가져온다.(ms)
 		 * 서버가 실행 중이 아닌 경우엔 -1을 반환한다.
 		 */
 		public function get elapsedTimeAfterRun():Number
@@ -370,13 +340,13 @@
 				return -1;
 			}
 			
-			return getTimer() / 1000.0 - _runnedTime;
+			return getTimer() - _runnedTime;
 		}
 		
-		/** 마지막으로 연결된 시각으로부터 지난 시간을 가져온다.(초 단위) */
+		/** 마지막으로 연결된 시각으로부터 지난 시간을 가져온다.(ms) */
 		public function get elapsedTimeAfterLastReceived():Number
 		{
-			return getTimer() / 1000.0 - _lastReceivedTime;
+			return getTimer() - _lastReceivedTime;
 		}
 		
 		/** 마지막으로 연결된 시각을 갱신한다.
@@ -384,7 +354,7 @@
 		 */
 		private function updateLastReceivedTime():void
 		{
-			_lastReceivedTime = getTimer() / 1000.0;
+			_lastReceivedTime = getTimer();
 			dispatchEvent(_event);
 		}
 		
@@ -528,7 +498,7 @@
 				{
 					continue;
 				}
-				socket =_socketArray[i];
+				socket = _socketArray[i];
 				if(socket.isConnected == false)
 				{
 					continue;
@@ -720,7 +690,7 @@
 				return;
 			}
 			
-			_runnedTime = getTimer() / 1000.0;
+			_runnedTime = getTimer();
 			_serverSocket.bind(_serverPort, _serverAddress);
 			_serverSocket.listen();
 			_serverSocket.addEventListener(ServerSocketConnectEvent.CONNECT, _socketConnect);
@@ -728,9 +698,6 @@
 			//addEventListener(Event.ENTER_FRAME, _timerFunc);
 			_timer.start();
 			_timer.addEventListener(TimerEvent.TIMER, _timerFunc);
-			
-			_cumulativePersons = 0;
-			_garbageCumulativePeople = 0;
 			
 			_run = true;
 			_record.addRecord("Opened server(runnedTime:" + _runnedTime + ")", true);
@@ -1245,10 +1212,7 @@
 			return tf;
 		}
 		
-		/** nativeSocket과의 연결을 끊는다.
-		 * 먼저 소켓에게 연결이 끊긴다는 definition을 보내고, 일정 시간 뒤에 강제로 연결을 끊는다.
-		 */
-		public function closeNativeSocket(nativeSocket:Socket):void
+		/*public function closeNativeSocket(nativeSocket:Socket):void
 		{
 			if(nativeSocket.connected == false)
 			{
@@ -1257,15 +1221,13 @@
 			
 			sendDefinitionToNativeSocket(nativeSocket, "GogduNet.Disconnect");
 			setTimeout(_forcedCloseNativeSocket, 100, nativeSocket);
-		}
+		}*/
 		
 		/** socket과의 연결을 끊는다.
-		 * 먼저 소켓에게 연결이 끊긴다는 definition을 보내고, 일정 시간 뒤에 강제로 연결을 끊는다.
 		 */
 		public function closeSocket(socket:GogduNetSocket):void
 		{
 			socket.removeEventListener(Event.CLOSE, _socketClosed);
-			var nativeSocket:Socket = socket.nativeSocket;
 			_idTable[socket.id] = null;
 			
 			socket.nativeSocket.close();
@@ -1298,7 +1260,7 @@
 			}
 			catch(e:Error)
 			{
-				_record.addErrorRecord(e, "It occurred from forced closes connection", true);
+				_record.addErrorRecord(e, "It occurred from forced closes nativeSocket connection", true);
 			}
 		}
 		
@@ -1345,11 +1307,10 @@
 			}*/
 			
 			// 사용자 포화로 접속 실패
-			if(currentPersons >= _maxPersons)
+			if(currentSockets >= _maxSockets)
 			{
 				_record.addRecord("What socket is failed connect(Saturation)(address:" + socket.remoteAddress + ", port:" + socket.remotePort + ")", true);
-				socket.writeMultiByte(makePacket(DataType.DEFINITION, "GogduNet.Connect.Fail.Saturation"), _encoding);
-				socket.flush();
+				sendDefinitionToNativeSocket(socket, "GogduNet.Connect.Fail.Saturation");
 				setTimeout(_forcedCloseNativeSocket, 100, socket);
 				
 				dispatchEvent(new GogduNetSocketEvent(GogduNetSocketEvent.CONNECT_FAILED, false, false, null, socket, GogduNetSocketEvent.INFO_SATURATION));
@@ -1369,21 +1330,6 @@
 			_socketArray.push(socket2);
 			
 			sendDefinitionToNativeSocket(socket, "GogduNet.Connect.Success"); // socket == socket2.nativeSocket
-			
-			// 현재 접속자가 최대 동시 접속자보다 많을 경우, 동접 수를 갱신.
-			if(currentPersons > _maxConcurrentConnectionPersons)
-			{
-				_maxConcurrentConnectionPersons = currentPersons;
-			}
-			
-			// 누적 접속 수가 uint의 최대값을 넘으려고 할 경우, _garbageCumulativePeople를 1 더하고 _cumulativePersons을 0으로 설정한다.
-			if(_cumulativePersons >= uint.MAX_VALUE)
-			{
-				_garbageCumulativePeople += 1;
-				_cumulativePersons = 0;
-			}
-			
-			_cumulativePersons += 1;
 			
 			_record.addRecord("Client connected(id:" + socket2.id + ", address:" + socket.remoteAddress + ", port:" + socket.remotePort + ")", true);
 			
@@ -1446,7 +1392,7 @@
 			var socket:GogduNetSocket;
 			var socketInSocket:Socket;
 			var packetBytes:ByteArray; // 패킷을 읽을 때 쓰는 바이트 배열.
-			var bytes:ByteArray; // 패킷을 읽을 때 보조용으로 한 번만 쓰는 일회용 문자열.
+			var bytes:ByteArray; // 패킷을 읽을 때 보조용으로 한 번만 쓰는 일회용 바이트 배열.
 			var regArray:Array; // 정규 표현식으로 찾은 문자열들을 저장해 두는 배열
 			var jsonObj:Object // 문자열을 JSON으로 변환할 때 사용하는 객체
 			var packetStr:String; // byte을 String으로 변환하여 읽을 때 쓰는 문자열.
@@ -1477,24 +1423,23 @@
 				socket.updateLastReceivedTime();
 				
 				// packetBytes는 socket.packetBytes + socketInSocket의 값을 가지게 된다.
-				try
-				{
+				/*try
+				{*/
 					packetBytes = new ByteArray();
 					bytes = socket._backupBytes;
 					bytes.position = 0;
 					packetBytes.position = 0;
 					packetBytes.writeBytes(bytes, 0, bytes.length);
+					//만약 AS가 아닌 C# 등과 통신할 경우 엔디안이 다르므로 오류가 날 수 있다. 그걸 방지하기 위함.
+					socketInSocket.endian = Endian.LITTLE_ENDIAN;
 					socketInSocket.readBytes(packetBytes, packetBytes.length, socketInSocket.bytesAvailable);
 					bytes.length = 0; //bytes == socket._backupBytes
-					
-					//만약 AS가 아닌 C# 등과 통신할 경우 엔디안이 다르므로 오류가 날 수 있다. 그걸 방지하기 위함.
-					packetBytes.endian = Endian.LITTLE_ENDIAN;
-				}
+				/*}
 				catch(e:Error)
 				{
 					_record.addErrorRecord(e, "It occurred from read to socket's packet", true);
 					continue;
-				}
+				}*/
 				
 				// 정보(byte)를 String으로 읽는다.
 				try
